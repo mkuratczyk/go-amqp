@@ -85,6 +85,13 @@ type ConnOptions struct {
 	// Default: 30s
 	WriteTimeout time.Duration
 
+	// TCPNoDelay controls whether the operating system should delay
+	// packet transmission in hopes of sending fewer packets (Nagle's
+	// algorithm). The default is true (no delay), meaning that data is
+	// sent as soon as possible. Setting to false may increase latency,
+	// but also throughput.
+	TCPNoDelay *bool
+
 	// test hook
 	dialer dialer
 }
@@ -130,6 +137,7 @@ type Conn struct {
 	net          net.Conn      // underlying connection
 	dialer       dialer        // used for testing purposes, it allows faking dialing TCP/TLS endpoints
 	writeTimeout time.Duration // controls write deadline in absense of a context
+	tcpNoDelay   bool          // controls TCP_NODELAY (Nagle's algorithm)
 
 	// TLS
 	tlsNegotiation bool        // negotiate TLS
@@ -316,6 +324,12 @@ func newConn(netConn net.Conn, opts *ConnOptions) (*Conn, error) {
 	if opts.dialer != nil {
 		c.dialer = opts.dialer
 	}
+	if opts.TCPNoDelay != nil && *opts.TCPNoDelay == false {
+		c.tcpNoDelay = false
+	} else {
+		c.tcpNoDelay = true
+	}
+
 	return c, nil
 }
 
@@ -599,7 +613,7 @@ func (c *Conn) connReader() {
 		c.close()
 	}()
 
-	var sessionsByRemoteChannel = make(map[uint16]*Session)
+	sessionsByRemoteChannel := make(map[uint16]*Session)
 	var err error
 	for {
 		if err != nil {
@@ -1071,6 +1085,9 @@ func (c *Conn) openAMQP(ctx context.Context) (stateFunc, error) {
 		Channel: 0,
 	}
 	debug.Log(1, "TX (openAMQP %p): %s", c, fr)
+
+	c.net.(*net.TCPConn).SetNoDelay(c.tcpNoDelay)
+
 	timeout, err := c.getWriteTimeout(ctx)
 	if err != nil {
 		return nil, err
