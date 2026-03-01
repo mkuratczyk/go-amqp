@@ -79,6 +79,36 @@ type SenderOptions struct {
 	//
 	// Default: 0.
 	TargetExpiryTimeout uint32
+
+	// Settlements receives settlement notifications in broker-arrival order
+	// when messages are sent via [Sender.SendWithReceipt]. Each [Settlement]
+	// is sent to this channel when the broker disposes a message.
+	//
+	// When set, settlements are delivered both to this channel and to the
+	// individual [SendReceipt] returned by SendWithReceipt, so existing code
+	// using [SendReceipt.Wait] continues to work.
+	//
+	// Default: nil (settlements are only available via [SendReceipt.Wait]).
+	Settlements chan<- Settlement
+
+	// SettlementQueueDepth sets the depth of the sender's internal settlement
+	// queue used to forward [Settlement] values to Settlements.
+	//
+	// When the internal queue is full, settlement forwarding waits until
+	// capacity is available.
+	//
+	// Default: 1.
+	SettlementQueueDepth int
+}
+
+// Settlement contains the outcome of a message sent via [Sender.SendWithReceipt].
+type Settlement struct {
+	// DeliveryTag is the delivery tag of the settled message, as returned
+	// by [SendReceipt.DeliveryTag].
+	DeliveryTag []byte
+
+	// DeliveryState is the outcome reported by the broker.
+	DeliveryState DeliveryState
 }
 
 type ReceiverOptions struct {
