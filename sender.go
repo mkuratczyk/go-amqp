@@ -266,16 +266,14 @@ func (s *Sender) send(ctx context.Context, msg *Message, opts *SendOptions, wait
 
 		// NOTE: we MUST send a copy of fr here since we modify it post send
 
-		frameCtx := frameContext{
-			Ctx:  ctx,
-			Done: make(chan struct{}),
-		}
-		if !waitForWrite {
+		frameCtx := frameContext{Ctx: ctx}
+		if waitForWrite {
+			frameCtx.Done = make(chan struct{})
+		} else {
 			// when the caller doesn't wait for the write, use a background
 			// context for the write deadline so the frame is written even
 			// if the caller's context is cancelled after send returns.
 			frameCtx.Ctx = context.Background()
-			frameCtx.Done = nil
 		}
 
 		select {
