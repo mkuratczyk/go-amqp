@@ -257,8 +257,11 @@ func (s *Sender) send(ctx context.Context, msg *Message, opts *SendOptions, wait
 			// mark final transfer as settled when sender mode is settled
 			fr.Settled = senderSettled
 
-			// set done on last frame
-			fr.Done = make(chan encoding.DeliveryState, 1)
+			// When the caller uses the Settlements channel, skip the
+			// per-message Done channel to avoid the allocation.
+			if s.settlementQ == nil {
+				fr.Done = make(chan encoding.DeliveryState, 1)
+			}
 		}
 
 		// NOTE: we MUST send a copy of fr here since we modify it post send

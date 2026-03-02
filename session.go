@@ -466,11 +466,13 @@ func (s *Session) mux(remoteBegin *frames.PerformBegin) {
 						// confirm by closing channel (RSM == ModeFirst)
 						if ps, ok := settlementFromDeliveryID[deliveryID]; ok {
 							delete(settlementFromDeliveryID, deliveryID)
-							select {
-							case ps.done <- body.State:
-							default:
+							if ps.done != nil {
+								select {
+								case ps.done <- body.State:
+								default:
+								}
+								close(ps.done)
 							}
-							close(ps.done)
 							if ps.settlements != nil {
 								ps.settlements <- Settlement{
 									DeliveryTag:   ps.deliveryTag,
@@ -711,8 +713,8 @@ func (s *Session) mux(remoteBegin *frames.PerformBegin) {
 				}
 			}
 
-			// if not settled, add done chan to map
-			if !fr.Settled && fr.Done != nil {
+			// if not settled, track pending settlement for disposition handling
+			if !fr.Settled && (fr.Done != nil || env.Settlements != nil) {
 				settlementFromDeliveryID[deliveryID] = pendingSettlement{
 					done:        fr.Done,
 					deliveryTag: fr.DeliveryTag,
@@ -751,11 +753,13 @@ func (s *Session) mux(remoteBegin *frames.PerformBegin) {
 						// that the delivery has completed (RSM == ModeSecond)
 						if ps, ok := settlementFromDeliveryID[deliveryID]; ok {
 							delete(settlementFromDeliveryID, deliveryID)
-							select {
-							case ps.done <- fr.State:
-							default:
+							if ps.done != nil {
+								select {
+								case ps.done <- fr.State:
+								default:
+								}
+								close(ps.done)
 							}
-							close(ps.done)
 							if ps.settlements != nil {
 								ps.settlements <- Settlement{
 									DeliveryTag:   ps.deliveryTag,
