@@ -24,6 +24,8 @@ type Sender struct {
 	rollback        chan struct{}
 	settlements     chan<- Settlement // optional channel for settlement notifications
 	settlementQ     chan Settlement
+
+	onLinkStateProperties func(map[string]any)
 }
 
 const defaultSettlementQueueDepth = 1
@@ -424,6 +426,9 @@ func newSender(target string, session *Session, opts *SenderOptions) (*Sender, e
 	if s.settlements != nil {
 		s.settlementQ = make(chan Settlement, queueDepth)
 	}
+	if opts.OnLinkStateProperties != nil {
+		s.onLinkStateProperties = opts.OnLinkStateProperties
+	}
 	return s, nil
 }
 
@@ -578,6 +583,14 @@ func (s *Sender) muxHandleFrame(fr frames.FrameBody) error {
 	switch fr := fr.(type) {
 	// flow control frame
 	case *frames.PerformFlow:
+		if fr.Properties != nil && s.onLinkStateProperties != nil {
+			props := make(map[string]any)
+			for k, v := range fr.Properties {
+				props[string(k)] = v
+			}
+			s.onLinkStateProperties(props)
+		}
+
 		// the sender's link-credit variable MUST be set according to this formula when flow information is given by the receiver:
 		// link-credit(snd) := delivery-count(rcv) + link-credit(rcv) - delivery-count(snd)
 		linkCredit := *fr.LinkCredit - s.l.deliveryCount
