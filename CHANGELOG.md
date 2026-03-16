@@ -3,6 +3,8 @@
 ## 1.6.0 (TBD)
 
 * Add SourceDistributionMode to ReceiverOptions
+* Add a callback for link state properties in the flow frame. This allows applications to react to the
+  properties sent by the broker.
 
 ## 1.5.1 (2026-01-07)
 
