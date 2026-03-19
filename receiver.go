@@ -503,9 +503,7 @@ func newReceiver(source string, session *Session, opts *ReceiverOptions) (*Recei
 	if opts.SourceDistributionMode != "" {
 		r.l.source.DistributionMode = opts.SourceDistributionMode
 	}
-	if opts.OnLinkStateProperties != nil {
-		r.onLinkStateProperties = opts.OnLinkStateProperties
-	}
+	r.onLinkStateProperties = opts.OnLinkStateProperties
 	return r, nil
 }
 
