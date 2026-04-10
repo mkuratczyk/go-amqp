@@ -357,6 +357,9 @@ func (s *Session) mux(remoteBegin *frames.PerformBegin) {
 		// maps delivery IDs to output (our) handles. used for multi-frame transfers
 		deliveryIDFromOutputHandle = make(map[uint32]uint32)
 
+		// maps output handles to delivery tags for multi-frame transfers
+		deliveryTagFromOutputHandle = make(map[uint32][]byte)
+
 		// maps delivery IDs to pending settlement state
 		settlementFromDeliveryID = make(map[uint32]pendingSettlement)
 
@@ -639,6 +642,7 @@ func (s *Session) mux(remoteBegin *frames.PerformBegin) {
 				// are safe to clean up its state.
 				delete(linkFromInputHandle, link.inputHandle)
 				delete(deliveryIDFromOutputHandle, link.outputHandle)
+				delete(deliveryTagFromOutputHandle, link.outputHandle)
 				s.deallocateHandle(link)
 
 			case *frames.PerformEnd:
@@ -679,6 +683,12 @@ func (s *Session) mux(remoteBegin *frames.PerformBegin) {
 				nextDeliveryID++
 				deliveryIDFromOutputHandle[fr.Handle] = deliveryID
 
+				// save the delivery tag from the first frame of a transfer;
+				// subsequent frames in a multi-frame transfer have it nil
+				if len(fr.DeliveryTag) > 0 {
+					deliveryTagFromOutputHandle[fr.Handle] = fr.DeliveryTag
+				}
+
 				if !fr.Settled {
 					inputHandleFromDeliveryID[deliveryID] = env.InputHandle
 				}
@@ -715,9 +725,18 @@ func (s *Session) mux(remoteBegin *frames.PerformBegin) {
 
 			// if not settled, track pending settlement for disposition handling
 			if !fr.Settled && (fr.Done != nil || env.Settlements != nil) {
+				// use the saved delivery tag for multi-frame transfers
+				// where the last frame has DeliveryTag nil
+				tag := fr.DeliveryTag
+				if len(tag) == 0 {
+					tag = deliveryTagFromOutputHandle[fr.Handle]
+				}
+				if !fr.More {
+					delete(deliveryTagFromOutputHandle, fr.Handle)
+				}
 				settlementFromDeliveryID[deliveryID] = pendingSettlement{
 					done:        fr.Done,
-					deliveryTag: fr.DeliveryTag,
+					deliveryTag: tag,
 					settlements: env.Settlements,
 				}
 			} else if fr.Done != nil {
