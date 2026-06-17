@@ -719,11 +719,17 @@ func (s *Session) mux(remoteBegin *frames.PerformBegin) {
 
 			// if not settled, track pending settlement for disposition handling
 			if !fr.Settled && (fr.Done != nil || env.Settlements != nil) {
-				settlementFromDeliveryID[deliveryID] = pendingSettlement{
-					done:        fr.Done,
-					deliveryTag: fr.DeliveryTag,
-					settlements: env.Settlements,
+				ps := settlementFromDeliveryID[deliveryID]
+				if ps.done == nil {
+					ps.done = fr.Done
 				}
+				if len(ps.deliveryTag) == 0 {
+					ps.deliveryTag = fr.DeliveryTag
+				}
+				if ps.settlements == nil {
+					ps.settlements = env.Settlements
+				}
+				settlementFromDeliveryID[deliveryID] = ps
 			} else if fr.Done != nil {
 				// sender-settled, close done now that the transfer has been sent
 				close(fr.Done)
