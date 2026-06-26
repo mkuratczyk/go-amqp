@@ -439,11 +439,6 @@ func EncodeFrame(t frames.Type, channel uint16, f frames.FrameBody) ([]byte, err
 	return raw, nil
 }
 
-func decodeFrame(b []byte) (uint16, frames.FrameBody, error) {
-	ch, fr, _, err := decodeFrameWithSize(b)
-	return ch, fr, err
-}
-
 func decodeFrameWithSize(b []byte) (uint16, frames.FrameBody, int, error) {
 	if len(b) > 3 && b[0] == 'A' && b[1] == 'M' && b[2] == 'Q' && b[3] == 'P' {
 		return 0, &AMQPProto{}, 8, nil
