@@ -36,6 +36,9 @@ type ConnOptions struct {
 	// A container ID will be randomly generated if this option is not used.
 	ContainerID string
 
+	// DesiredCapabilities maps to the desired-capabilities of the connection's Open frame.
+	DesiredCapabilities []string
+
 	// HostName sets the hostname sent in the AMQP
 	// Open frame and TLS ServerName (if not otherwise set).
 	HostName string
@@ -155,6 +158,8 @@ type Conn struct {
 	idleTimeout  time.Duration           // maximum period between receiving frames
 	properties   map[encoding.Symbol]any // additional properties sent upon connection open
 	containerID  string                  // set explicitly or randomly generated
+
+	desiredCapabilities encoding.MultiSymbol // maps to the Open frame's desired-capabilities field
 
 	// peer settings
 	peerIdleTimeout  time.Duration  // maximum period between sending frames
@@ -296,6 +301,12 @@ func newConn(netConn net.Conn, opts *ConnOptions) (*Conn, error) {
 	}
 	if opts.ContainerID != "" {
 		c.containerID = opts.ContainerID
+	}
+	if opts.DesiredCapabilities != nil {
+		c.desiredCapabilities = make([]encoding.Symbol, 0, len(opts.DesiredCapabilities))
+		for _, capabilityStr := range opts.DesiredCapabilities {
+			c.desiredCapabilities = append(c.desiredCapabilities, encoding.Symbol(capabilityStr))
+		}
 	}
 	if opts.HostName != "" {
 		c.hostname = opts.HostName
@@ -1137,12 +1148,13 @@ func (c *Conn) startTLS(ctx context.Context) (stateFunc, error) {
 func (c *Conn) openAMQP(ctx context.Context) (stateFunc, error) {
 	// send open frame
 	open := &frames.PerformOpen{
-		ContainerID:  c.containerID,
-		Hostname:     c.hostname,
-		MaxFrameSize: c.maxFrameSize,
-		ChannelMax:   c.channelMax,
-		IdleTimeout:  c.idleTimeout / 2, // per spec, advertise half our idle timeout
-		Properties:   c.properties,
+		ContainerID:         c.containerID,
+		Hostname:            c.hostname,
+		MaxFrameSize:        c.maxFrameSize,
+		ChannelMax:          c.channelMax,
+		IdleTimeout:         c.idleTimeout / 2, // per spec, advertise half our idle timeout
+		Properties:          c.properties,
+		DesiredCapabilities: c.desiredCapabilities,
 	}
 	fr := frames.Frame{
 		Type:    frames.TypeAMQP,
