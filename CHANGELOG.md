@@ -1,5 +1,9 @@
 # Release History
 
+## 1.8.0 (TBD)
+
+* Added support for setting `desired-capabilities` in the connection OPEN frames
+
 ## 1.7.0 (2026-06-08)
 
 * Add `OnDeliveryStateChanged` callback to `SenderOptions` and `ReceiverOptions`.
